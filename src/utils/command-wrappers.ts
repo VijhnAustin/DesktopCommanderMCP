@@ -62,8 +62,8 @@ const POSIX_SHELL_COMMANDS = new Map<string, PosixWrapper>([
 /** cmd's start switches that take the next word as their value (/D also takes it in the same word: /Dpath) */
 const CMD_START_VALUE_SWITCHES = ['/d', '/node', '/affinity', '/machine'];
 
-/** A program a wrapper starts: its words as the shell reads them and as written, the name first */
-type Started = Pick<FoundCommand, 'words' | 'written'>;
+/** A program a wrapper starts: its words as the shell reads them, as written and as texts, the name first */
+type Started = Pick<FoundCommand, 'words' | 'written' | 'wordTexts'>;
 
 /**
  * The commands that run: each of `commands`, followed by the programs that
@@ -75,8 +75,8 @@ export function withStartedPrograms(commands: FoundCommand[], shellType: ShellTy
   const add = (command: FoundCommand): void => {
     running.push(command);
     if (command.nameAtRunTime) return;
-    for (const { words, written } of startedPrograms(command, shellType)) {
-      add({ name: words[0] ?? written[0], words, written, start: command.start, nameAtRunTime: words[0] === null });
+    for (const { words, written, wordTexts } of startedPrograms(command, shellType)) {
+      add({ name: words[0] ?? written[0], words, written, wordTexts, start: command.start, nameAtRunTime: words[0] === null });
     }
   };
   commands.forEach(add);
@@ -86,12 +86,12 @@ export function withStartedPrograms(commands: FoundCommand[], shellType: ShellTy
 /** The programs a command starts when it is a wrapper: none for any other command */
 function startedPrograms(command: FoundCommand, shellType: ShellType): Started[] {
   const name = programName(command.name);
-  const { words, written } = command;
-  const from = (at: number): Started => ({ words: words.slice(at), written: written.slice(at) });
+  const { words, written, wordTexts } = command;
+  const from = (at: number): Started => ({ words: words.slice(at), written: written.slice(at), wordTexts: wordTexts.slice(at) });
   const posix = PROGRAMS.get(name) ?? (shellType === 'posix' ? POSIX_SHELL_COMMANDS.get(name) : undefined);
   if (posix) return posixProgramsAt(command, posix).map(from);
   // Its own arguments are in -ArgumentList, a text the check doesn't read, so a program Start-Process starts has only its name
-  if (shellType === 'powershell' && name === 'start-process') return (command.filePaths ?? []).map(({ word, written }) => ({ words: [word], written: [written] }));
+  if (shellType === 'powershell' && name === 'start-process') return (command.filePaths ?? []).map(({ word, written }) => ({ words: [word], written: [written], wordTexts: [word ?? written] }));
   if (shellType === 'cmd' && name === 'start') return cmdStartProgramsAt(command).map(from);
   return [];
 }
