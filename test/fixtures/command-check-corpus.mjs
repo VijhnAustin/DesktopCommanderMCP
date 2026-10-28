@@ -6,9 +6,11 @@
  * Nothing here is ever executed. Commands are only passed to a parser. Each
  * `command` is the exact text a user/AI sent to start_process; `shell` is the
  * shell start_process would run it in (so the correct reading is that shell's).
- * `expect` is null when no blocked program runs, or the blocked program's
- * name when one really does. A Windows path names no program on other
- * systems, so a case with one gives its answer by process.platform.
+ * `expect` is null when no blocked program runs, the blocked program's name
+ * when one really does, or 'unknowable' when the program that runs can't be
+ * known from the text (it is chosen when the command runs, or is in a script
+ * file): the check allows it and says so. A Windows path names no program on
+ * other systems, so a case with one gives its answer by process.platform.
  * `expectPerShell`, when set, gives the answer for one PowerShell program
  * where it differs from `expect`: in Windows PowerShell 5.1 sc is the alias of
  * Set-Content, while PowerShell 7 has no such alias and runs sc.exe.
@@ -24,8 +26,9 @@
  * escape, a path, capitals or .exe); meaning = a PowerShell name whose meaning
  * there (an alias, or a program) decides what runs;
  * ownfunc = a script's own function named like a blocked program;
- * long = the 14k-char case; control = a plain blocked program, to keep every
- * approach honest.
+ * runtime = a program chosen when the command runs; file = the commands in a
+ * script file given to a shell; long = the 14k-char case; control = a plain
+ * blocked program, to keep every approach honest.
  */
 
 const nl = '\n';
@@ -114,7 +117,7 @@ export const CORPUS = [
     note: '#834 init in a hashtable value',
   },
   {
-    id: 'i890', group: 'issue', shell: 'powershell', expect: null,
+    id: 'i890', group: 'issue', shell: 'powershell', expect: 'unknowable',
     command: '& $client init --help', note: '#890 init is a subcommand of a variable executable',
   },
   {
@@ -173,7 +176,7 @@ export const CORPUS = [
   { id: 'exp_brace_quoted', group: 'expansion', shell: 'bash', expect: null, command: '"{sudo,ls}"', note: 'quoted braces are text: the program is named {sudo,ls}' },
   { id: 'exp_brace_escaped', group: 'expansion', shell: 'bash', expect: null, command: '\\{sudo,ls}', note: 'an escaped brace is text' },
   { id: 'exp_brace_q_comma', group: 'expansion', shell: 'bash', expect: null, command: '{"sudo,ls"}', note: 'a quoted comma is text, so there is no list' },
-  { id: 'exp_brace_var', group: 'expansion', shell: 'bash', expect: null, command: '{$X,ls}', note: 'the name depends on $X, known only at run time, so the check names no program' },
+  { id: 'exp_brace_var', group: 'expansion', shell: 'bash', expect: 'unknowable', command: '{$X,ls}', note: 'the name depends on $X, known only at run time, so the check names no program' },
 
   // ---- A blocked name written another way: the shell still runs the same program ----
   { id: 'name_amp_quote', group: 'name', shell: 'powershell', expect: 'sudo', command: "& 'sudo' whoami", note: 'the call operator runs the quoted name' },
@@ -235,6 +238,14 @@ export const CORPUS = [
   { id: 'fn_remove_pipe_ps', group: 'ownfunc', shell: 'powershell', expect: 'net', command: "function net { 'x' }; 'function:net' | Remove-Item; net user", note: 'Remove-Item with the path from the pipeline removed the own net' },
   { id: 'fn_variable_ps', group: 'ownfunc', shell: 'powershell', expect: 'net', command: "function net { 'x' }; $function:net = $null; net user", note: '$function:net = $null removed the own net' },
   { id: 'fn_start_job_ps', group: 'ownfunc', shell: 'powershell', expect: 'net', command: "function net { 'x' }; Start-Job { net user } | Receive-Job -Wait", note: "a job runs in another process, where the script's functions don't exist" },
+
+  // ---- Run time: the program is chosen when the command runs, so the check can't see it ----
+  { id: 'rt_eval', group: 'runtime', shell: 'bash', expect: 'unknowable', command: 'eval "$CMD"', note: 'the program is in $CMD, unknown until run time' },
+  { id: 'rt_iex', group: 'runtime', shell: 'powershell', expect: 'unknowable', command: 'Invoke-Expression $cmd', note: 'the program is in $cmd' },
+  { id: 'rt_amp_var', group: 'runtime', shell: 'powershell', expect: 'unknowable', command: '& $tool stop Spooler', note: 'the program is the value of $tool' },
+
+  // ---- A script file: its commands aren't in the text ----
+  { id: 'file_bash', group: 'file', shell: 'bash', expect: 'unknowable', command: 'bash deploy.sh', note: 'the commands are in deploy.sh, not in the text' },
 
   // ---- The 14k-char case ----
   { id: 'long01', group: 'long', shell: 'powershell', expect: null, command: long01, note: '14k chars; su only as Spanish prose in a here-string' },
