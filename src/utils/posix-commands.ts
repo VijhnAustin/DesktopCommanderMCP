@@ -122,6 +122,7 @@ export async function readPosixCommands(command: string): Promise<CommandReading
         commands.push({
           name: nameAtRunTime ? words[i].text : expanded[0] as string,
           words: [...expanded, ...values.slice(i + 1)],
+          written: [...expanded.map(() => words[i].text), ...words.slice(i + 1).map((word) => word.text)],
           start: backticksStart ?? (i === 0 ? node.pos : words[i].pos),
           nameAtRunTime,
         });
